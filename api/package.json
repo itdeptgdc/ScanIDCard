@@ -1,0 +1,24 @@
+{
+  "name": "scanid-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Poipet Resort & Casino - Scan ID API (Express + PostgreSQL)",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "bcryptjs": "2.4.3",
+    "compression": "1.7.5",
+    "cookie-parser": "1.4.7",
+    "csv-parse": "5.6.0",
+    "express": "4.21.2",
+    "helmet": "7.2.0",
+    "jsonwebtoken": "9.0.2",
+    "pg": "8.13.1"
+  }
+}

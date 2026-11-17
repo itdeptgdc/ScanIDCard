@@ -1,0 +1,42 @@
+================Remote Desktop Connection=================
+Computer: 192.168.55.88
+Username: administrator
+pass: dr0wss@P
+
+Manufacturer        : VMware, Inc.
+
+================================Docker INFO======================================
+DOCS: https://docs.docker.com/reference/cli/docker/
+URL:hub.docker.com
+New Docker Account Login
+Email: it.dept.gdc@gmail.com
+username: docker144507
+
+------------GitHub Login-----------
+Username: itdeptgdc
+
+
+-----------Database--------------
+URL:http://localhost:8080/?pgsql=db&username=scanid&db=scanid&ns=public&select=staff_photos
+System:PostgreSQL 
+Server:db
+Username: scanid
+Password: scanid
+Database: scanid
+
+
+to run this project
+.\start.ps1
+
+
+-------Scan ID Admin Card Login-------------
+https://script.google.com/macros/s/AKfycbzaD7-mVv1FKvWh2fEVaQxpi10d7vVsXeV9U2pVNvyFe9i8nYXpAQHwmBcIGVCJ6eMH/exec
+Username: admin
+Password: admin1234
+
+
+------------To Run outside remote any brosewer--------------
+URL: http://192.168.55.88:3000/login
+open powershell and run cmd:
+New-NetFirewallRule -DisplayName "ScanID (LAN) HTTP/HTTPS/3000" -Direction Inbound -Protocol TCP -LocalPort 80,443,3000 -RemoteAddress 10.0.0.0/8,172.16.0.0/12,192.168.0.0/16 -Profile Any -Action Allow
+

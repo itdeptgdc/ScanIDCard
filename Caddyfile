@@ -1,0 +1,30 @@
+# HTTPS entry point so the camera works on every PC in the LAN.
+# Browsers only allow the camera on https:// (or localhost).
+# Caddy creates its own local certificate authority; install its root certificate
+# on kiosk PCs once (download http://<SERVER_IP>/ca.crt) to remove the browser warning.
+{
+	local_certs
+	skip_install_trust
+	auto_https disable_redirects
+	default_sni {$SERVER_IP}
+}
+
+# Port 80: certificate download + redirect everything else to HTTPS
+http:// {
+	handle /ca.crt {
+		root * /data/caddy/pki/authorities/local
+		rewrite * /root.crt
+		header Content-Type application/x-x509-ca-cert
+		header Content-Disposition "attachment; filename=\"PoipetScanID-CA.crt\""
+		file_server
+	}
+	handle {
+		redir https://{host}{uri} 302
+	}
+}
+
+localhost, {$SERVER_IP}, {$SERVER_NAME} {
+	tls internal
+	encode gzip
+	reverse_proxy web:3000
+}

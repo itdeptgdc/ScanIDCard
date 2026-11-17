@@ -1,0 +1,103 @@
+name: scanid
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-scanid}
+      POSTGRES_USER: ${POSTGRES_USER:-scanid}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-scanid}
+      TZ: ${APP_TZ:-Asia/Bangkok}
+    command:
+      - postgres
+      - -c
+      - shared_buffers=256MB
+      - -c
+      - max_connections=200
+      - -c
+      - effective_cache_size=768MB
+      # Uncomment for maximum write speed (risk: the last <1 s of scans can be lost on a power cut)
+      # - -c
+      # - synchronous_commit=off
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-scanid} -d ${POSTGRES_DB:-scanid}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    # ports: ["5432:5432"]   # expose only if you need direct DB access
+
+  api:
+    build: ./api
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgres://${POSTGRES_USER:-scanid}:${POSTGRES_PASSWORD:-scanid}@db:5432/${POSTGRES_DB:-scanid}
+      DB_POOL_MAX: ${DB_POOL_MAX:-20}
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret-change-me}
+      QR_SECRET: ${QR_SECRET:-dev-qr-secret-change-me}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      SESSION_HOURS: ${SESSION_HOURS:-12}
+      APP_TZ: ${APP_TZ:-Asia/Bangkok}
+      TZ: ${APP_TZ:-Asia/Bangkok}
+      CHECKIN_START: ${CHECKIN_START:-04:30}
+      CHECKIN_END: ${CHECKIN_END:-16:30}
+      CHECKOUT_START: ${CHECKOUT_START:-16:35}
+      CHECKOUT_END: ${CHECKOUT_END:-04:00}
+      SCAN_MIN_GAP_SECONDS: ${SCAN_MIN_GAP_SECONDS:-60}
+      ALLOW_ID_ONLY_SCAN: ${ALLOW_ID_ONLY_SCAN:-true}
+      LOG_RETENTION_DAYS: ${LOG_RETENTION_DAYS:-90}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin1234}
+
+  web:
+    build:
+      context: ./web
+      args:
+        API_INTERNAL_URL: http://api:4000
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      TZ: ${APP_TZ:-Asia/Bangkok}
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+
+  # HTTPS for LAN kiosks (camera needs https) -> https://<SERVER_IP>
+  caddy:
+    image: caddy:2.8.4-alpine
+    restart: unless-stopped
+    depends_on:
+      - web
+    environment:
+      SERVER_IP: ${SERVER_IP:-127.0.0.1}
+      SERVER_NAME: ${SERVER_NAME:-scanid.local}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+  # Web database viewer -> http://localhost:8080 (bound to 127.0.0.1: only reachable from this server)
+  adminer:
+    image: adminer:4.8.1
+    restart: unless-stopped
+    depends_on:
+      - db
+    environment:
+      ADMINER_DEFAULT_SERVER: db
+    ports:
+      - "127.0.0.1:${ADMINER_PORT:-8080}:8080"
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
