@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Poipet Resort & Casino — Scan ID & Attendance
 
 Next.js · Node.js/Express · PostgreSQL · Docker. Thai UI by default (English switchable).
@@ -143,3 +144,6 @@ Changing `QR_SECRET` later invalidates every printed QR; card readers and ID num
 cd api && npm install && DATABASE_URL=postgres://... npm run dev
 cd web && npm install && API_INTERNAL_URL=http://localhost:4000 npm run dev
 ```
+=======
+# ScanIDCard
+>>>>>>> 08e28dc3c96d35cd287ade08187556b6f4b35a05
