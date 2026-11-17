@@ -12,9 +12,10 @@ New Docker Account Login
 Email: it.dept.gdc@gmail.com
 username: docker144507
 
+
 ------------GitHub Login-----------
 Username: itdeptgdc
-
+Login by google
 
 -----------Database--------------
 URL:http://localhost:8080/?pgsql=db&username=scanid&db=scanid&ns=public&select=staff_photos
