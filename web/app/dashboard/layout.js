@@ -8,6 +8,7 @@ import { useI18n } from '@/lib/i18n';
 import Logo from '@/components/Logo';
 import LangSwitch from '@/components/LangSwitch';
 import { RoleBadge } from '@/components/Badges';
+import { InstallBanner, InstallButton } from '@/components/InstallApp';
 
 const MeCtx = createContext(null);
 
@@ -81,7 +82,7 @@ export default function DashboardLayout({ children }) {
               const active = pathname.startsWith(n.href);
               return (
                 <Link key={n.href} href={n.href} className={`sb-link ${active ? 'active' : ''}`} title={t(n.key)}>
-                  <Icon size={19} />
+                  <Icon size={19} className={n.href === '/scan' ? 'scan-anim' : undefined} />
                   <span>{t(n.key)}</span>
                 </Link>
               );
@@ -100,6 +101,7 @@ export default function DashboardLayout({ children }) {
               <div className="topbar-title">Poipet Resort &amp; Casino</div>
             </div>
             <div className="topbar-right">
+              <InstallButton />
               <LangSwitch />
               {me.role === 'admin' && (
                 <Link
@@ -121,7 +123,10 @@ export default function DashboardLayout({ children }) {
               </button>
             </div>
           </header>
-          <div className="content">{children}</div>
+          <div className="content">
+            <InstallBanner />
+            {children}
+          </div>
         </main>
 
         {/* mobile: native-style bottom tab bar (replaces the sidebar) */}
@@ -138,7 +143,7 @@ export default function DashboardLayout({ children }) {
             const active = pathname.startsWith(n.href);
             return (
               <Link key={n.href} href={n.href} className={`tab ${active ? 'active' : ''} ${n.href === '/scan' ? 'tab-scan' : ''}`}>
-                <span className="tab-icon"><Icon size={21} /></span>
+                <span className="tab-icon"><Icon size={21} className={n.href === '/scan' ? 'scan-anim' : undefined} /></span>
                 <span className="tab-label">{t(n.key)}</span>
               </Link>
             );

@@ -10,6 +10,7 @@ import { useI18n, DICT } from '@/lib/i18n';
 import { TZ } from '@/lib/format';
 import Logo from '@/components/Logo';
 import LangSwitch from '@/components/LangSwitch';
+import { InstallButton } from '@/components/InstallApp';
 import CameraScanner from '@/components/CameraScanner';
 import IdCard from '@/components/IdCard';
 
@@ -435,6 +436,7 @@ export default function ScanPage() {
           <button className="btn btn-ghost-gold icon-only" onClick={toggleVoice} title={voice ? t('scan.voiceOff') : t('scan.voiceOn')}>
             {voice ? <Volume2 size={17} /> : <VolumeX size={17} />}
           </button>
+          <InstallButton className="btn btn-ghost-gold icon-only" />
           <LangSwitch />
           {canDash && (
             <Link href="/dashboard/staff" className="btn btn-ghost-gold dash-link" title={t('nav.dashboard')}>

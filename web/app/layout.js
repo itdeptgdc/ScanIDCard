@@ -6,7 +6,7 @@ export const metadata = {
   description: 'Poipet Resort & Casino — secure staff ID scanning and attendance',
   applicationName: 'Poipet Scan ID',
   appleWebApp: { capable: true, title: 'Scan ID', statusBarStyle: 'black-translucent' },
-  icons: { icon: '/favicon.png', apple: '/logo.png' },
+  icons: { icon: '/favicon.png', apple: '/icons/apple-touch-icon.png' },
   formatDetection: { telephone: false },
 };
 
