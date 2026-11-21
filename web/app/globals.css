@@ -346,6 +346,21 @@ img { display: block; }
 }
 .table th + th { box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.07); }
 .table th.sticky-col { box-shadow: -8px 0 12px -10px rgba(58,5,48,.45); }
+/* staff form: ID number with Nationality + Sex side by side below it */
+.field-stack { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.field-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.panel-head-left { display: flex; align-items: flex-end; gap: 22px; flex-wrap: wrap; }
+.page-size { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted, #6b5a66); font-weight: 600; }
+.page-size-select { width: 92px; }
+.th-sort {
+  display: inline-flex; align-items: center; gap: 5px; padding: 0; border: 0; background: none; cursor: pointer;
+  font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit;
+}
+.th-sort svg { opacity: 0.45; transition: opacity 0.15s; }
+.th-sort:hover svg { opacity: 0.85; }
+.th-sort.active { color: var(--gold); }
+.th-sort.active svg { opacity: 1; }
+.th-sort:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; border-radius: 3px; }
 
 /* ---- export column picker ---- */
 .export-head { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
@@ -970,7 +985,8 @@ th.sticky-col { z-index: 3; }
 }
 .idc-row { display: flex; gap: 4px; font-size: 14px; font-weight: 700; line-height: 1.35; }
 .idc-row .k { flex: none; }
-.idc-row .v { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* long values shrink to fit (FitText) instead of being cut off with "…" */
+.fit-text { display: block; flex: 1 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; }
 .idc-qr { width: 104px; height: 104px; padding: 4px; background: #fff; border: 1px solid #ddd; border-radius: 4px; }
 .idc-qr img { width: 100%; height: 100%; image-rendering: pixelated; }
 .idc-qr-ph { width: 100%; height: 100%; background: linear-gradient(90deg, #eee 0, #f8f8f8 50%, #eee 100%); background-size: 200% 100%; animation: shimmer 1.2s infinite linear; }

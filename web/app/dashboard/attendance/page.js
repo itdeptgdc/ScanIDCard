@@ -8,8 +8,15 @@ import { useToast } from '@/components/Toast';
 import StatCard from '@/components/StatCard';
 import Pagination from '@/components/Pagination';
 import { TypeBadge } from '@/components/Badges';
+import DepartmentSelect from '@/components/DepartmentSelect';
+import PageSize from '@/components/PageSize';
 
 const SIZE = 50;
+
+function Thumb({ r }) {
+  if (r.has_photo) return <img className="thumb" src={`/api/staff/${r.staff_id}/photo?v=${r.photo_version}`} alt="" loading="lazy" />;
+  return <div className="thumb thumb-ph">{(r.name || '?').trim().charAt(0).toUpperCase() || '?'}</div>;
+}
 
 function hours(a, b) {
   if (!a || !b) return '—';
@@ -23,7 +30,9 @@ export default function AttendancePage() {
   const [date, setDate] = useState(todayStr());
   const [q, setQ] = useState('');
   const [dq, setDq] = useState('');
+  const [dept, setDept] = useState('');
   const [page, setPage] = useState(1);
+  const [size, setSize] = useState(SIZE);
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -38,14 +47,14 @@ export default function AttendancePage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const p = new URLSearchParams({ date, q: dq, page: String(page), size: String(SIZE) });
+      const p = new URLSearchParams({ date, q: dq, department: dept, page: String(page), size: String(size) });
       setData(await api('/attendance?' + p));
     } catch (e) {
       toast(errText(e, t), 'error');
     } finally {
       setLoading(false);
     }
-  }, [date, dq, page]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [date, dq, dept, page, size]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { load(); }, [load]);
 
@@ -68,17 +77,21 @@ export default function AttendancePage() {
 
       <div className="panel">
         <div className="panel-head">
-          <div>
-            <div className="eyebrow">{t('att.eyebrow')}</div>
-            <h2 className="panel-title">{t('att.title')}</h2>
+          <div className="panel-head-left">
+            <div>
+              <div className="eyebrow">{t('att.eyebrow')}</div>
+              <h2 className="panel-title">{t('att.title')}</h2>
+            </div>
+            <PageSize value={size} onChange={(v) => { setSize(v); setPage(1); }} />
           </div>
           <div className="toolbar">
+            <DepartmentSelect value={dept} onChange={(v) => { setDept(v); setPage(1); }} />
             <div className="search">
               <Search size={17} />
               <input value={q} onChange={(e) => setQ(e.target.value)} placeholder={t('att.searchPh')} />
             </div>
             <input type="date" className="date-input" value={date} onChange={(e) => { setDate(e.target.value || todayStr()); setPage(1); }} />
-            <button className="btn btn-outline" onClick={() => download(`/attendance/export.csv?from=${date}&to=${date}`)}>
+            <button className="btn btn-outline" onClick={() => download(`/attendance/export.csv?${new URLSearchParams({ from: date, to: date, department: dept })}`)}>
               <Download size={16} /> {t('common.export')}
             </button>
           </div>
@@ -88,6 +101,7 @@ export default function AttendancePage() {
           <table className="table">
             <thead>
               <tr>
+                <th>{t('staff.photo')}</th>
                 <th>{t('staff.idNumber')}</th>
                 <th>{t('staff.name')}</th>
                 <th>{t('staff.cardType')}</th>
@@ -101,13 +115,14 @@ export default function AttendancePage() {
             </thead>
             <tbody>
               {loading && !data && (
-                <tr className="skeleton-row"><td colSpan={9}><div className="skeleton" /></td></tr>
+                <tr className="skeleton-row"><td colSpan={10}><div className="skeleton" /></td></tr>
               )}
               {!loading && rows.length === 0 && (
-                <tr><td colSpan={9} className="empty">{t('att.noScans')}</td></tr>
+                <tr><td colSpan={10} className="empty">{t('att.noScans')}</td></tr>
               )}
               {rows.map((r, i) => (
                 <tr key={r.id} className="row-in" style={{ animationDelay: `${i * 12}ms` }}>
+                  <td><Thumb r={r} /></td>
                   <td className="mono strong">{r.id_number}</td>
                   <td className="strong">{r.name || '—'}</td>
                   <td><TypeBadge type={r.card_type} /></td>
@@ -127,7 +142,7 @@ export default function AttendancePage() {
             </tbody>
           </table>
         </div>
-        {data && <Pagination page={page} size={SIZE} total={data.total} onPage={setPage} />}
+        {data && <Pagination page={page} size={size} total={data.total} onPage={setPage} />}
       </div>
     </>
   );

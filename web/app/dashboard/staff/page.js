@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Search, Plus, Pencil, Trash2, CreditCard, Users, LogIn, LogOut, CalendarClock, Printer, FileSpreadsheet, FileText, ImageDown, Loader2, Upload, FileDown } from 'lucide-react';
+import { Search, Plus, Pencil, Trash2, CreditCard, Users, LogIn, LogOut, CalendarClock, Printer, FileSpreadsheet, FileText, ImageDown, Loader2, Upload, FileDown, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { saveCardPng } from '@/lib/saveCard';
 import { api, errText } from '@/lib/api';
 import { DICT } from '@/lib/i18n';
@@ -18,12 +18,26 @@ import { TypeBadge, StatusBadge } from '@/components/Badges';
 import IdCard from '@/components/IdCard';
 import { printCard } from '@/lib/printCard';
 import StaffForm from './StaffForm';
+import DepartmentSelect from '@/components/DepartmentSelect';
+import PageSize from '@/components/PageSize';
 
-const SIZE = 20;
+const SIZE = 25; // default rows per page (one of PAGE_SIZES)
 
 function Thumb({ s }) {
   if (s.has_photo) return <img className="thumb" src={`/api/staff/${s.id}/photo?v=${s.photo_version}`} alt="" loading="lazy" />;
   return <div className="thumb thumb-ph">{(s.name || '?').trim().charAt(0).toUpperCase() || '?'}</div>;
+}
+
+function SortTh({ k, sort, onSort, children }) {
+  const active = sort.key === k;
+  const Icon = !active ? ArrowUpDown : sort.dir === 'asc' ? ArrowUp : ArrowDown;
+  return (
+    <th aria-sort={active ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'}>
+      <button type="button" className={`th-sort${active ? ' active' : ''}`} onClick={() => onSort(k)}>
+        {children} <Icon size={13} />
+      </button>
+    </th>
+  );
 }
 
 function Expiry({ d }) {
@@ -47,9 +61,11 @@ export default function StaffPage() {
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
+  const [size, setSize] = useState(SIZE);
   const [q, setQ] = useState('');
   const [dq, setDq] = useState('');
   const [type, setType] = useState('');
+  const [dept, setDept] = useState('');
   const [loading, setLoading] = useState(true);
   const [edit, setEdit] = useState(null);
   const [preview, setPreview] = useState(null);
@@ -60,6 +76,14 @@ export default function StaffPage() {
   const [importRes, setImportRes] = useState(null);
   const fileRef = useRef(null);
   const printRef = useRef(null);
+
+  // column sort: click cycles asc → desc → default (newest first)
+  const [sort, setSort] = useState({ key: '', dir: 'asc' });
+  const sortParams = sort.key ? { sort: sort.key, dir: sort.dir } : {};
+  const toggleSort = (key) => {
+    setSort((s) => (s.key !== key ? { key, dir: 'asc' } : s.dir === 'asc' ? { key, dir: 'desc' } : { key: '', dir: 'asc' }));
+    setPage(1);
+  };
 
   useEffect(() => {
     const h = setTimeout(() => {
@@ -72,7 +96,7 @@ export default function StaffPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const p = new URLSearchParams({ q: dq, type, page: String(page), size: String(SIZE) });
+      const p = new URLSearchParams({ q: dq, type, department: dept, page: String(page), size: String(size), ...sortParams });
       const r = await api('/staff?' + p);
       setRows(r.rows);
       setTotal(r.total);
@@ -81,7 +105,7 @@ export default function StaffPage() {
     } finally {
       setLoading(false);
     }
-  }, [dq, type, page]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dq, type, dept, page, size, sort.key, sort.dir]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadStats = useCallback(() => api('/staff/stats').then(setStats).catch(() => {}), []);
 
@@ -150,7 +174,7 @@ export default function StaffPage() {
 
   async function runExport(cols) {
     try {
-      const r = await api('/staff/export?' + new URLSearchParams({ q: dq, type }));
+      const r = await api('/staff/export?' + new URLSearchParams({ q: dq, type, department: dept, ...sortParams }));
       if (!r.rows.length) {
         toast(t('common.noData'), 'error');
         return;
@@ -177,11 +201,15 @@ export default function StaffPage() {
 
       <div className="panel">
         <div className="panel-head">
-          <div>
-            <div className="eyebrow">{t('staff.eyebrow')}</div>
-            <h2 className="panel-title">{t('staff.title')}</h2>
+          <div className="panel-head-left">
+            <div>
+              <div className="eyebrow">{t('staff.eyebrow')}</div>
+              <h2 className="panel-title">{t('staff.title')}</h2>
+            </div>
+            <PageSize value={size} onChange={(v) => { setSize(v); setPage(1); }} />
           </div>
           <div className="toolbar">
+            <DepartmentSelect value={dept} onChange={(v) => { setDept(v); setPage(1); }} />
             <Select value={type} onChange={(v) => { setType(v); setPage(1); }} options={typeOptions} className="w-220" />
             <div className="search">
               <Search size={17} />
@@ -213,8 +241,8 @@ export default function StaffPage() {
             <thead>
               <tr>
                 <th>{t('staff.photo')}</th>
-                <th>{t('staff.idNumber')}</th>
-                <th>{t('staff.cardNumber')}</th>
+                <SortTh k="id_number" sort={sort} onSort={toggleSort}>{t('staff.idNumber')}</SortTh>
+                <SortTh k="card_number" sort={sort} onSort={toggleSort}>{t('staff.cardNumber')}</SortTh>
                 <th>{t('staff.name')}</th>
                 <th>{t('staff.position')}</th>
                 <th>{t('staff.department')}</th>
@@ -263,7 +291,7 @@ export default function StaffPage() {
             </tbody>
           </table>
         </div>
-        <Pagination page={page} size={SIZE} total={total} onPage={setPage} />
+        <Pagination page={page} size={size} total={total} onPage={setPage} />
       </div>
 
       {edit && (

@@ -17,7 +17,7 @@
  *   shape  { fill, radius, borderColor, borderWidth }
  */
 import { cardDate } from '@/lib/format';
-import { Photo, DecorQr } from './cardParts';
+import { Photo, DecorQr, FitText } from './cardParts';
 import { LOGO_SRC } from './Logo';
 import { KHMER_BRAND, EN_BRAND } from '@/lib/cardTypes';
 
@@ -93,7 +93,7 @@ function Element({ e, staff, qr, displayOnly }) {
             <span style={{ display: 'flex', width: '100%', minWidth: 0, justifyContent: 'inherit' }}>
               <span style={{ flex: 'none', width: e.labelWidth }}>{e.prefix || ''}</span>
               <span style={{ flex: 'none' }}>{e.sep ?? ''}</span>
-              <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fieldValue(staff, e.field) || '—'}</span>
+              <FitText>{fieldValue(staff, e.field) || '—'}</FitText>
             </span>
           ) : (
             <>

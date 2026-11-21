@@ -17,12 +17,12 @@ const COLOR_RE = /^#[0-9a-f]{3,8}$/i;
 
 /** All valid card_type values: built-ins + existing templates. */
 async function validTypes() {
-  const { rows } = await pool.query('SELECT id FROM card_templates');
+  const { rows } = await pool.query('SELECT id FROM card_templates WHERE builtin IS NULL');
   return new Set([...BUILTIN_TYPES, ...rows.map((r) => keyOf(r.id))]);
 }
 /** Map template name (lower-case) -> key, for CSV import ("Gold VIP" -> tpl_3). */
 async function typesByName() {
-  const { rows } = await pool.query('SELECT id, name FROM card_templates');
+  const { rows } = await pool.query('SELECT id, name FROM card_templates WHERE builtin IS NULL');
   return new Map(rows.map((r) => [r.name.trim().toLowerCase(), keyOf(r.id)]));
 }
 
@@ -44,8 +44,8 @@ router.get(
   ANY,
   ah(async (req, res) => {
     const { rows } = await pool.query(
-      `SELECT t.id, t.name, t.color, t.design, t.updated_at,
-              (SELECT count(*) FROM staff s WHERE s.card_type = 'tpl_' || t.id) AS staff_count
+      `SELECT t.id, t.name, t.color, t.design, t.updated_at, t.builtin,
+              (SELECT count(*) FROM staff s WHERE s.card_type = COALESCE(t.builtin, 'tpl_' || t.id)) AS staff_count
          FROM card_templates t ORDER BY t.name`
     );
     res.json({ rows: rows.map(shape) });
@@ -72,7 +72,7 @@ router.put(
     const d = clean(req.body);
     const { rows } = await pool.query(
       `UPDATE card_templates SET name = $1, color = $2, design = $3, updated_at = now()
-        WHERE id = $4 RETURNING id, name, color, design, updated_at`,
+        WHERE id = $4 AND builtin IS NULL RETURNING id, name, color, design, updated_at`,
       [d.name, d.color, d.design, req.params.id]
     );
     if (!rows[0]) throw new HttpError(404, 'NOT_FOUND');
@@ -87,19 +87,52 @@ router.delete(
     const id = parseInt(req.params.id, 10);
     const used = await pool.query('SELECT count(*)::int AS n FROM staff WHERE card_type = $1', [keyOf(id)]);
     if (used.rows[0].n) throw new HttpError(409, 'TEMPLATE_IN_USE');
-    const r = await pool.query('DELETE FROM card_templates WHERE id = $1 RETURNING design', [id]);
+    const r = await pool.query('DELETE FROM card_templates WHERE id = $1 AND builtin IS NULL RETURNING design', [id]);
     if (!r.rowCount) throw new HttpError(404, 'NOT_FOUND');
-    // remove images no other template uses
-    const ids = assetIds(r.rows[0].design);
-    if (ids.length) {
-      const all = await pool.query('SELECT design FROM card_templates');
-      const keep = new Set(all.rows.flatMap((x) => assetIds(x.design)));
-      const drop = ids.filter((a) => !keep.has(a));
-      if (drop.length) await pool.query('DELETE FROM card_assets WHERE id = ANY($1::int[])', [drop]);
-    }
+    await dropUnusedAssets(r.rows[0].design);
     res.json({ ok: true });
   })
 );
+
+// ---------- edited built-in designs ----------
+// PUT saves a new design for a built-in card type; DELETE restores the original hard-coded artwork.
+router.put(
+  '/builtin/:type',
+  HR,
+  ah(async (req, res) => {
+    const type = req.params.type;
+    if (!BUILTIN_TYPES.includes(type)) throw new HttpError(404, 'NOT_FOUND');
+    const d = clean({ ...req.body, name: req.body?.name || type });
+    const { rows } = await pool.query(
+      `INSERT INTO card_templates (name, color, design, builtin) VALUES ($1, $2, $3, $4)
+       ON CONFLICT (builtin) WHERE builtin IS NOT NULL
+       DO UPDATE SET design = EXCLUDED.design, updated_at = now()
+       RETURNING id, name, color, design, updated_at, builtin`,
+      [d.name, d.color, d.design, type]
+    );
+    res.json(shape(rows[0]));
+  })
+);
+
+router.delete(
+  '/builtin/:type',
+  HR,
+  ah(async (req, res) => {
+    const r = await pool.query('DELETE FROM card_templates WHERE builtin = $1 RETURNING design', [req.params.type]);
+    if (r.rowCount) await dropUnusedAssets(r.rows[0].design);
+    res.json({ ok: true });
+  })
+);
+
+/** Remove uploaded images that no remaining template uses. */
+async function dropUnusedAssets(design) {
+  const ids = assetIds(design);
+  if (!ids.length) return;
+  const all = await pool.query('SELECT design FROM card_templates');
+  const keep = new Set(all.rows.flatMap((x) => assetIds(x.design)));
+  const drop = ids.filter((a) => !keep.has(a));
+  if (drop.length) await pool.query('DELETE FROM card_assets WHERE id = ANY($1::int[])', [drop]);
+}
 
 function assetIds(design) {
   const out = [];

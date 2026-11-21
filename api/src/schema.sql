@@ -63,6 +63,13 @@ CREATE TABLE IF NOT EXISTS card_templates (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+-- record-only staff details (not printed on the card)
+ALTER TABLE staff ADD COLUMN IF NOT EXISTS nationality TEXT NOT NULL DEFAULT '';
+ALTER TABLE staff ADD COLUMN IF NOT EXISTS sex TEXT NOT NULL DEFAULT '';   -- '' | 'male' | 'female'
+
+-- an edited built-in design (builtin = 'staff', 'vendor', ...) is stored here too; deleting the row restores the original
+ALTER TABLE card_templates ADD COLUMN IF NOT EXISTS builtin TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS card_templates_builtin_uq ON card_templates (builtin) WHERE builtin IS NOT NULL;
 -- images used by templates (background, logos ...)
 CREATE TABLE IF NOT EXISTS card_assets (
   id         SERIAL PRIMARY KEY,

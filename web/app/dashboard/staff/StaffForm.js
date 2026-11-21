@@ -11,7 +11,11 @@ import Select from '@/components/Select';
 const EMPTY = {
   id_number: '', card_number: '', name: '', position: '', department: '', company: '', passport: '',
   card_type: 'casino_staff', status: 'active', hire_date: '', card_expiry: '',
+  nationality: '', sex: '',
 };
+
+// suggestions only — any nationality can be typed
+const NATIONALITIES = ['Cambodian', 'Thai', 'Vietnamese', 'Lao', 'Chinese', 'Malaysian', 'Filipino', 'Indonesian', 'Myanmar', 'Indian', 'Korean', 'Japanese'];
 
 /** Downscale big camera photos (max 1600px) so the photo editor stays fast. */
 function resizeImage(file, max = 1600) {
@@ -84,6 +88,11 @@ export default function StaffForm({ initial, onClose, onSaved }) {
   }
 
   const typeOptions = cardTypes.types.map((c) => ({ value: c.value, label: c.custom ? `${c.label} ★` : c.label, color: c.color }));
+  const sexOptions = [
+    { value: '', label: '—' },
+    { value: 'male', label: t('sex.male') },
+    { value: 'female', label: t('sex.female') },
+  ];
   const statuses = [
     { v: 'active', icon: CheckCircle2 },
     { v: 'locked', icon: Lock },
@@ -137,10 +146,26 @@ export default function StaffForm({ initial, onClose, onSaved }) {
           </div>
 
           <div className="form-grid">
-            <label className="field">
-              <span>{t('staff.idNumber')} <em>*</em></span>
-              <input className="mono" value={f.id_number} onChange={set('id_number')} required maxLength={40} />
-            </label>
+            <div className="field-stack">
+              <label className="field">
+                <span>{t('staff.idNumber')} <em>*</em></span>
+                <input className="mono" value={f.id_number} onChange={set('id_number')} required maxLength={40} />
+              </label>
+              {/* record-only details: not printed on the ID card */}
+              <div className="field-pair">
+                <label className="field">
+                  <span>{t('staff.nationality')}</span>
+                  <input value={f.nationality} onChange={set('nationality')} maxLength={60} list="nationality-list" />
+                  <datalist id="nationality-list">
+                    {NATIONALITIES.map((n) => <option key={n} value={n} />)}
+                  </datalist>
+                </label>
+                <div className="field">
+                  <span>{t('staff.sex')}</span>
+                  <Select value={f.sex} onChange={set('sex')} options={sexOptions} placeholder="—" />
+                </div>
+              </div>
+            </div>
             <label className="field">
               <span>{t('staff.cardNumber')}</span>
               <input className="mono" value={f.card_number} onChange={set('card_number')} maxLength={40} autoComplete="off" />

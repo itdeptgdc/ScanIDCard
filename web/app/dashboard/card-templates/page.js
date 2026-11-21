@@ -1,6 +1,7 @@
 'use client';
 import { useState } from 'react';
-import { Plus, Pencil, Copy, Trash2, Users, LayoutTemplate, Lock } from 'lucide-react';
+import { Plus, Pencil, Copy, Trash2, Users, LayoutTemplate, Lock, RotateCcw } from 'lucide-react';
+import { builtinDesign } from '@/lib/builtinDesigns';
 import { api, errText } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { CARD_TYPES, useCardTypes, loadTemplates } from '@/lib/cardTypes';
@@ -16,6 +17,7 @@ export default function CardTemplatesPage() {
   const ct = useCardTypes(t);
   const [edit, setEdit] = useState(null); // template being designed ({} = new)
   const [del, setDel] = useState(null);
+  const [restore, setRestore] = useState(null); // { type, name } of an edited built-in to reset
   const [busy, setBusy] = useState(false);
 
   async function duplicate(tp) {
@@ -25,6 +27,20 @@ export default function CardTemplatesPage() {
       toast(t('common.saved'));
     } catch (e) {
       toast(errText(e, t), 'error');
+    }
+  }
+
+  async function confirmRestore() {
+    setBusy(true);
+    try {
+      await api(`/card-templates/builtin/${restore.type}`, { method: 'DELETE' });
+      await loadTemplates();
+      toast(t('common.saved'));
+      setRestore(null);
+    } catch (e) {
+      toast(errText(e, t), 'error');
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -94,7 +110,7 @@ export default function CardTemplatesPage() {
         )}
       </div>
 
-      {/* read-only: built-in designs, for reference */}
+      {/* built-in designs: editable; an edited one can be restored to the original artwork */}
       <div className="panel" style={{ marginTop: 18 }}>
         <div className="panel-head">
           <div>
@@ -103,22 +119,37 @@ export default function CardTemplatesPage() {
           </div>
         </div>
         <div className="tpl-grid">
-          {CARD_TYPES.map((c) => (
-            <div className="tpl-tile builtin" key={c.value}>
-              <div className="tpl-prev">
-                <div className="tpl-prev-in">
-                  <IdCard staff={{ ...SAMPLE_STAFF, card_type: c.value }} displayOnly />
+          {CARD_TYPES.map((c) => {
+            const ov = ct.override(c.value);
+            const name = t(`type.${c.value}`);
+            const editBuiltin = () => setEdit({ builtin: c.value, name, color: c.color, design: ov?.design || builtinDesign(c.value) });
+            return (
+              <div className="tpl-tile" key={c.value}>
+                <div className="tpl-prev" onClick={editBuiltin} title={t('tpl.edit')}>
+                  <div className="tpl-prev-in">
+                    <IdCard staff={{ ...SAMPLE_STAFF, card_type: c.value }} displayOnly />
+                  </div>
+                </div>
+                <div className="tpl-info">
+                  <div className="tpl-name">
+                    <span className="dot" style={{ background: c.color }} />
+                    <b>{name}</b>
+                  </div>
+                  <span className="muted small">
+                    {ov ? <><Pencil size={12} /> {t('tpl.customized')}</> : <><Lock size={12} /> {t('tpl.builtinNote')}</>}
+                  </span>
+                </div>
+                <div className="tpl-actions">
+                  <button className="btn btn-soft btn-sm" onClick={editBuiltin}><Pencil size={14} /> {t('tpl.edit')}</button>
+                  {ov && (
+                    <button className="icon-btn" onClick={() => setRestore({ type: c.value, name })} title={t('tpl.restore')}>
+                      <RotateCcw size={15} />
+                    </button>
+                  )}
                 </div>
               </div>
-              <div className="tpl-info">
-                <div className="tpl-name">
-                  <span className="dot" style={{ background: c.color }} />
-                  <b>{t(`type.${c.value}`)}</b>
-                </div>
-                <span className="muted small"><Lock size={12} /> {t('tpl.builtinNote')}</span>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -133,6 +164,17 @@ export default function CardTemplatesPage() {
           }}
         />
       )}
+
+      <ConfirmModal
+        open={!!restore}
+        title={t('tpl.restoreTitle')}
+        message={restore ? t('tpl.restoreMsg', { name: restore.name }) : ''}
+        confirmLabel={t('tpl.restore')}
+        cancelLabel={t('common.cancel')}
+        onConfirm={confirmRestore}
+        onClose={() => setRestore(null)}
+        busy={busy}
+      />
 
       <ConfirmModal
         open={!!del}

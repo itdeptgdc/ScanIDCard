@@ -18,7 +18,8 @@ export default function PhotoCropper({ src, onApply, onCancel }) {
   const { t } = useI18n();
   const [img, setImg] = useState(null);
   const [zoom, setZoom] = useState(1);
-  const [rot, setRot] = useState(0);
+  const [rot, setRot] = useState(0); // 90° steps
+  const [tilt, setTilt] = useState(0); // fine rotation, -45…45° in 0.5° steps
   const [off, setOff] = useState({ x: 0, y: 0 });
   const [bright, setBright] = useState(100);
   const [contrast, setContrast] = useState(100);
@@ -44,18 +45,32 @@ export default function PhotoCropper({ src, onApply, onCancel }) {
     return () => window.removeEventListener('keydown', h, true);
   }, [onCancel]);
 
-  const swap = rot % 180 !== 0;
-  const iw = img ? (swap ? img.naturalHeight : img.naturalWidth) : 1;
-  const ih = img ? (swap ? img.naturalWidth : img.naturalHeight) : 1;
-  const base = Math.max(FW / iw, FH / ih); // "cover" the frame at zoom 1
+  // Total angle = 90° steps + fine tilt. Work in the image's own (unrotated) axes:
+  // the frame rotated by -angle has bounding box bw × bh, which the scaled image must cover.
+  const angle = rot + tilt;
+  const rad = (angle * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const ac = Math.abs(cos);
+  const as = Math.abs(sin);
+  const bw = FW * ac + FH * as;
+  const bh = FW * as + FH * ac;
+  const W = img ? img.naturalWidth : 1;
+  const H = img ? img.naturalHeight : 1;
+  const base = Math.max(bw / W, bh / H); // "cover" the frame at zoom 1 (no white corners)
   const scale = base * zoom;
 
+  // keep the frame inside the image: clamp the offset in image axes, then rotate back
   const clamp = (o, z = zoom) => {
     const s = base * z;
-    const mx = Math.max(0, (iw * s - FW) / 2);
-    const my = Math.max(0, (ih * s - FH) / 2);
-    return { x: Math.min(mx, Math.max(-mx, o.x)), y: Math.min(my, Math.max(-my, o.y)) };
+    const mu = Math.max(0, (W * s - bw) / 2);
+    const mv = Math.max(0, (H * s - bh) / 2);
+    const u = Math.min(mu, Math.max(-mu, o.x * cos + o.y * sin));
+    const v = Math.min(mv, Math.max(-mv, -o.x * sin + o.y * cos));
+    return { x: u * cos - v * sin, y: u * sin + v * cos };
   };
+
+  const setTiltC = (d) => setTilt(Math.round(Math.min(45, Math.max(-45, d)) * 2) / 2);
 
   const setZoomC = (z) => {
     const nz = Math.min(5, Math.max(1, z));
@@ -66,7 +81,7 @@ export default function PhotoCropper({ src, onApply, onCancel }) {
   // re-clamp after rotation changes the image bounds
   useEffect(() => {
     setOff((o) => clamp(o));
-  }, [rot, img]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [rot, tilt, img]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onPointerDown = (e) => {
     e.currentTarget.setPointerCapture(e.pointerId);
@@ -87,6 +102,7 @@ export default function PhotoCropper({ src, onApply, onCancel }) {
   function reset() {
     setZoom(1);
     setRot(0);
+    setTilt(0);
     setOff({ x: 0, y: 0 });
     setBright(100);
     setContrast(100);
@@ -103,7 +119,7 @@ export default function PhotoCropper({ src, onApply, onCancel }) {
     ctx.fillRect(0, 0, OUT_W, OUT_H);
     ctx.filter = filter;
     ctx.translate(OUT_W / 2 + off.x * k, OUT_H / 2 + off.y * k);
-    ctx.rotate((rot * Math.PI) / 180);
+    ctx.rotate(rad);
     ctx.scale(scale * k, scale * k);
     ctx.imageSmoothingQuality = 'high';
     ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
@@ -136,7 +152,7 @@ export default function PhotoCropper({ src, onApply, onCancel }) {
                 style={{
                   width: img.naturalWidth,
                   height: img.naturalHeight,
-                  transform: `translate(-50%, -50%) translate(${off.x}px, ${off.y}px) rotate(${rot}deg) scale(${scale})`,
+                  transform: `translate(-50%, -50%) translate(${off.x}px, ${off.y}px) rotate(${angle}deg) scale(${scale})`,
                   filter,
                 }}
               />
@@ -168,6 +184,15 @@ export default function PhotoCropper({ src, onApply, onCancel }) {
                 <button type="button" className="btn btn-outline btn-sm" onClick={() => setRot((r) => (r + 90) % 360)}><RotateCw size={15} /> 90°</button>
               </div>
             </div>
+
+            <label className="crop-row">
+              <span><RotateCw size={15} /> {t('crop.tilt')} <em>{tilt > 0 ? '+' : ''}{tilt}°</em></span>
+              <div className="crop-slider">
+                <button type="button" className="icon-btn sm" onClick={() => setTiltC(tilt - 1)} aria-label="-1°"><RotateCcw size={14} /></button>
+                <input type="range" min="-45" max="45" step="0.5" value={tilt} onChange={(e) => setTiltC(Number(e.target.value))} onDoubleClick={() => setTilt(0)} />
+                <button type="button" className="icon-btn sm" onClick={() => setTiltC(tilt + 1)} aria-label="+1°"><RotateCw size={14} /></button>
+              </div>
+            </label>
 
             <label className="crop-row">
               <span><Sun size={15} /> {t('crop.brightness')} <em>{bright}%</em></span>

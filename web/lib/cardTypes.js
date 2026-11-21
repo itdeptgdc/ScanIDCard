@@ -42,7 +42,9 @@ export function loadTemplates() {
  * types: [{ value, label, color, custom, template }]  ·  find(value)  ·  label(value)  ·  color(value)
  */
 export function useCardTypes(t) {
-  const [list, setList] = useState(templates || []);
+  const [all, setList] = useState(templates || []);
+  // rows with `builtin` set are edited versions of a built-in design, not separate card types
+  const list = all.filter((tp) => !tp.builtin);
   useEffect(() => {
     subs.add(setList);
     if (templates) setList(templates);
@@ -61,6 +63,8 @@ export function useCardTypes(t) {
     types,
     find,
     template: (v) => list.find((tp) => tp.key === v) || null,
+    /** edited design for a built-in type ('staff', 'vendor' ...), or null = original artwork */
+    override: (v) => all.find((tp) => tp.builtin === v) || null,
     label: (v) => find(v)?.label || v,
     color: (v) => find(v)?.color || '#888',
   };

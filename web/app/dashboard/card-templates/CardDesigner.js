@@ -397,7 +397,11 @@ export default function CardDesigner({ initial, onClose, onSaved }) {
     setError('');
     try {
       const body = { name: name.trim(), color, design };
-      const r = isNew ? await api('/card-templates', { method: 'POST', body }) : await api(`/card-templates/${initial.id}`, { method: 'PUT', body });
+      const r = initial?.builtin
+        ? await api(`/card-templates/builtin/${initial.builtin}`, { method: 'PUT', body }) // edited built-in design
+        : isNew
+        ? await api('/card-templates', { method: 'POST', body })
+        : await api(`/card-templates/${initial.id}`, { method: 'PUT', body });
       setDirty(false);
       onSaved(r);
     } catch (e) {
@@ -431,11 +435,12 @@ export default function CardDesigner({ initial, onClose, onSaved }) {
         <button type="button" className="icon-btn" onClick={close} title={t('common.close')}>
           <X size={18} />
         </button>
-        <input className="dz-name" value={name} onChange={(e) => { setName(e.target.value); setDirty(true); }} placeholder={t('tpl.namePh')} maxLength={60} />
-        <label className="dz-badgecolor" title={t('tpl.badgeColor')}>
+        {/* built-in types keep their name and badge colour; only the artwork is editable */}
+        <input className="dz-name" value={name} readOnly={!!initial?.builtin} onChange={(e) => { setName(e.target.value); setDirty(true); }} placeholder={t('tpl.namePh')} maxLength={60} />
+        {!initial?.builtin && <label className="dz-badgecolor" title={t('tpl.badgeColor')}>
           <input type="color" value={color} onChange={(e) => { setColor(e.target.value); setDirty(true); }} />
           <span>{t('tpl.badgeColor')}</span>
-        </label>
+        </label>}
         <div className="dz-top-sp" />
         <button type="button" className="icon-btn" onClick={doUndo} disabled={!undo.current.length} title="Undo (Ctrl+Z)"><Undo2 size={17} /></button>
         <button type="button" className="icon-btn" onClick={doRedo} disabled={!redo.current.length} title="Redo (Ctrl+Y)"><Redo2 size={17} /></button>

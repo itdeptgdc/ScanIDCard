@@ -65,14 +65,15 @@ export function InstallBanner() {
 }
 
 /* ---------------- top-bar button ---------------- */
-export function InstallButton({ className = 'icon-btn' }) {
+export function InstallButton({ className = 'icon-btn', label = false }) {
   const { t } = useI18n();
   const { inst, install, guide, setGuide } = useInstallAction();
   if (!inst.ready || inst.installed) return null;
   return (
     <>
       <button className={`${className} install-btn`} onClick={() => setGuide(true)} aria-label={t('install.title')} title={t('install.title')}>
-        <Download size={17} />
+        <Download size={label ? 16 : 17} />
+        {label && <span className="hide-sm">{t('install.title')}</span>}
       </button>
       <InstallDialog open={guide} onClose={() => setGuide(false)} inst={inst} onInstall={install} />
     </>

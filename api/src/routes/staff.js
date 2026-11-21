@@ -12,10 +12,11 @@ const ANY = requireAuth();
 
 const { validTypes, typesByName } = require('./templates');
 const STATUSES = ['active', 'locked', 'blocked'];
+const SEXES = ['male', 'female'];
 const ID_RE = /^[A-Z0-9][A-Z0-9._\-/]{0,39}$/;
 
 const COLS = `s.id, s.id_number, s.card_number, s.name, s.position, s.department, s.company, s.passport,
-  s.card_type, s.status, s.hire_date, s.card_expiry, s.has_photo, s.photo_version, s.created_at, s.updated_at`;
+  s.card_type, s.status, s.hire_date, s.card_expiry, s.nationality, s.sex, s.has_photo, s.photo_version, s.created_at, s.updated_at`;
 
 const text = (v, max = 120) => String(v ?? '').trim().slice(0, max);
 
@@ -33,6 +34,8 @@ function clean(b, types) {
     status: STATUSES.includes(b.status) ? b.status : 'active',
     hire_date: isDate(b.hire_date) ? b.hire_date : null,
     card_expiry: isDate(b.card_expiry) ? b.card_expiry : null,
+    nationality: text(b.nationality, 60),
+    sex: SEXES.includes(b.sex) ? b.sex : '',
   };
   if (!d.id_number) throw new HttpError(400, 'ID_REQUIRED');
   if (!ID_RE.test(d.id_number)) throw new HttpError(400, 'ID_INVALID');
@@ -72,9 +75,10 @@ router.get(
 );
 
 // ---------------- list ----------------
-/** Shared search / filter clause for the list and the export. Params: $1 work date, $2 q, $3 like, $4 type, $5 status. */
+/** Shared search / filter clause for the list and the export. Params: $1 work date, $2 q, $3 like, $4 type, $5 status, $6 department. */
 function listFilter(query) {
   const q = text(query.q, 60);
+  const dept = text(query.department, 120);
   const type = /^[a-z0-9_]{1,40}$/.test(String(query.type || '')) ? query.type : '';
   const status = STATUSES.includes(query.status) ? query.status : '';
   const like = `%${q.replace(/[%_\\]/g, (m) => '\\' + m)}%`;
@@ -84,23 +88,47 @@ function listFilter(query) {
         WHERE ($2 = '' OR s.name ILIKE $3 OR s.id_number ILIKE $3 OR s.card_number ILIKE $3
                OR s.department ILIKE $3 OR s.position ILIKE $3 OR s.company ILIKE $3)
           AND ($4 = '' OR s.card_type = $4)
-          AND ($5 = '' OR s.status = $5)`,
-    params: [workDate(), q, like, type, status],
+          AND ($5 = '' OR s.status = $5)
+          AND ($6 = '' OR upper(trim(s.department)) = upper($6))`,
+    params: [workDate(), q, like, type, status, dept],
   };
+}
+
+// distinct departments for the filter dropdowns (staff + attendance pages)
+router.get(
+  '/departments',
+  HR,
+  ah(async (req, res) => {
+    const { rows } = await pool.query(
+      // upper() so 'Information Technology' and 'INFORMATION TECHNOLOGY' show once
+      `SELECT DISTINCT upper(trim(department)) AS department FROM staff WHERE trim(COALESCE(department, '')) <> '' ORDER BY 1`
+    );
+    res.json(rows.map((r) => r.department));
+  })
+);
+
+// ?sort=id_number|card_number & dir=asc|desc  (whitelisted — never interpolate raw input)
+const SORTABLE = { id_number: 's.id_number', card_number: 's.card_number' };
+function orderBy(q) {
+  const col = SORTABLE[q.sort];
+  if (!col) return 's.id DESC';
+  const dir = q.dir === 'desc' ? 'DESC' : 'ASC';
+  // empty card numbers always go last; s.id breaks ties so paging is stable
+  return `NULLIF(${col}, '') ${dir} NULLS LAST, s.id DESC`;
 }
 
 router.get(
   '/',
   HR,
   ah(async (req, res) => {
-    const size = Math.min(Math.max(parseInt(req.query.size, 10) || 20, 1), 200);
+    const size = Math.min(Math.max(parseInt(req.query.size, 10) || 20, 1), 5000); // 5000 = "All" in the UI
     const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
     const f = listFilter(req.query);
     const { rows } = await pool.query(
       `SELECT ${COLS}, a.check_in, a.check_out, count(*) OVER() AS total
          ${f.from}
-        ORDER BY s.id DESC
-        LIMIT $6 OFFSET $7`,
+        ORDER BY ${orderBy(req.query)}
+        LIMIT $7 OFFSET $8`,
       [...f.params, size, (page - 1) * size]
     );
     res.json({ rows: rows.map(({ total, ...r }) => r), total: rows[0]?.total ?? 0, page, size });
@@ -119,7 +147,7 @@ router.get(
     const { rows } = await pool.query(
       `SELECT ${FIELDS.map((c) => 's.' + c).join(', ')}, a.check_in, a.check_out
          ${f.from}
-        ORDER BY s.id DESC`,
+        ORDER BY ${orderBy(req.query)}`,
       f.params
     );
     res.json({ rows, generated: today() });
@@ -247,9 +275,9 @@ router.post(
     const d = clean(req.body || {}, await validTypes());
     await checkConflicts(d, 0);
     const { rows } = await pool.query(
-      `INSERT INTO staff (id_number, card_number, name, position, department, company, passport, card_type, status, hire_date, card_expiry)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
-      VALUES(d)
+      `INSERT INTO staff (id_number, card_number, name, position, department, company, passport, card_type, status, hire_date, card_expiry, nationality, sex)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id`,
+      [...VALUES(d), d.nationality, d.sex]
     );
     await cache.refresh([rows[0].id]);
     res.status(201).json({ id: rows[0].id });
@@ -265,9 +293,9 @@ router.put(
     await checkConflicts(d, id);
     const r = await pool.query(
       `UPDATE staff SET id_number=$1, card_number=$2, name=$3, position=$4, department=$5, company=$6, passport=$7,
-              card_type=$8, status=$9, hire_date=$10, card_expiry=$11, updated_at=now()
-        WHERE id=$12`,
-      [...VALUES(d), id]
+              card_type=$8, status=$9, hire_date=$10, card_expiry=$11, nationality=$12, sex=$13, updated_at=now()
+        WHERE id=$14`,
+      [...VALUES(d), d.nationality, d.sex, id]
     );
     if (!r.rowCount) throw new HttpError(404, 'NOT_FOUND');
     await cache.refresh([id]);

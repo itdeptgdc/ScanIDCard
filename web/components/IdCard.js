@@ -38,6 +38,10 @@ export default function IdCard({ staff, displayOnly = false }) {
     return tpl ? <TemplateCard template={tpl} staff={staff} qr={qr} displayOnly={displayOnly} /> : <div className="idcard idc-custom" />;
   }
 
+  // built-in type whose design was edited in Card templates
+  const override = ct.override(type);
+  if (override) return <TemplateCard template={override} staff={staff} qr={qr} displayOnly={displayOnly} />;
+
   const qrBox = (
     <div className="idc-qr">
       {displayOnly ? <DecorQr seed={staff.id_number} /> : qr ? <img src={qr} alt="QR" /> : <div className="idc-qr-ph" />}
