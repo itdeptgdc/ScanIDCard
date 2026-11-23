@@ -25,9 +25,14 @@ Username: scanid
 Password: scanid
 Database: scanid
 
-
-to run this project
+cd C:\Users\Administrator\Desktop\ScanIDCard
+To run this project
+docker compose restart
 .\start.ps1
+
+To stop this project
+docker compose stop
+
 
 
 -------Scan ID Admin Card Login-------------
