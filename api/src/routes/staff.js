@@ -145,7 +145,7 @@ router.get(
   ah(async (req, res) => {
     const f = listFilter(req.query);
     const { rows } = await pool.query(
-      `SELECT ${FIELDS.map((c) => 's.' + c).join(', ')}, a.check_in, a.check_out
+      `SELECT ${FIELDS.map((c) => 's.' + c).join(', ')}, s.nationality, s.sex, a.check_in, a.check_out
          ${f.from}
         ORDER BY ${orderBy(req.query)}`,
       f.params

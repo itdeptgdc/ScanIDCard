@@ -18,6 +18,8 @@ export const EXPORT_COLS = [
   { key: 'department', label: 'staff.department', width: 24 },
   { key: 'company', label: 'staff.company', width: 22 },
   { key: 'passport', label: 'staff.passport', width: 16 },
+  { key: 'nationality', label: 'staff.nationality', width: 16 },
+  { key: 'sex', label: 'staff.sex', width: 10 },
   { key: 'check_in', label: 'staff.checkIn', width: 12, time: true },
   { key: 'check_out', label: 'staff.checkOut', width: 12, time: true },
   { key: 'card_type', label: 'staff.cardType', width: 18 },
@@ -58,6 +60,7 @@ function cellValue(row, col, { t, typeLabel }, forPdf) {
   if (col.date) return forPdf ? (v ? cardDate(v) : '') : dateOf(v);
   if (col.key === 'card_type') return v ? typeLabel(v) : '';
   if (col.key === 'status') return v ? t(`status.${v}`) : '';
+  if (col.key === 'sex') return v ? t(`sex.${v}`) : '';
   return v ?? '';
 }
 
